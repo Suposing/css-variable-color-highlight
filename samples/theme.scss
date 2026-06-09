@@ -1,0 +1,18 @@
+$dd-primary: #1677ff;
+$dd-primary-deep: #0958d9;
+$dd-primary-shadow: rgba(22, 119, 255, 0.24);
+$dd-panel-border: #d6e4ff
+
+:root {
+  --dd-color-primary: $dd-primary;
+  --dd-color-primary-deep: $dd-primary-deep;
+  --dd-gradient-primary: linear-gradient(135deg, $dd-primary 0%, $dd-primary-deep 100%);
+  --dd-shadow-primary-24: 0 16px 32px $dd-primary-shadow;
+  --dd-panel-border: $dd-panel-border;
+}
+
+.sample-theme-scss {
+  color: $dd-primary;
+  border-color: $dd-panel-border;
+  box-shadow: 0 12px 24px $dd-primary-shadow;
+}

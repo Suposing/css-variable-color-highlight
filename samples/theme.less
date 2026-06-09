@@ -1,0 +1,15 @@
+@dd-danger: #ff4d4f;
+@dd-danger-soft: rgba(255, 77, 79, 0.16);
+@dd-warning: #faad14;
+
+:root {
+  --dd-color-danger: @dd-danger;
+  --dd-color-warning: @dd-warning;
+  --dd-danger-shadow: 0 12px 24px @dd-danger-soft;
+}
+
+.sample-theme-less {
+  color: @dd-danger;
+  border-color: @dd-warning;
+  box-shadow: 0 12px 24px @dd-danger-soft;
+}

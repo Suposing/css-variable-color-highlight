@@ -62,4 +62,47 @@ describe('CssVariableResolver', () => {
 
     expect(colors).toEqual(['#fff', '#f7fafc']);
   });
+
+  it('resolves Sass variables from simple definitions', () => {
+    const definitions = scanVariableDefinitions('$primary: #1677ff; $shadow: 0 8px 24px rgba(22, 119, 255, 0.24);');
+    const resolver = new CssVariableResolver();
+
+    const colorResult = resolver.resolvePreprocessorVariable('$primary', 'sass', definitions, []);
+    const shadowResult = resolver.resolvePreprocessorVariable('$shadow', 'sass', definitions, []);
+
+    expect(colorResult.colors).toEqual(['#1677ff']);
+    expect(colorResult.definition?.syntax).toBe('sass');
+    expect(shadowResult.colors).toEqual(['rgba(22, 119, 255, 0.24)']);
+  });
+
+  it('resolves Less variables from simple definitions', () => {
+    const definitions = scanVariableDefinitions('@primary: #1677ff; @hover: @primary;');
+    const resolver = new CssVariableResolver();
+
+    const result = resolver.resolvePreprocessorVariable('@hover', 'less', definitions, []);
+
+    expect(result.colors).toEqual(['#1677ff']);
+    expect(result.definition?.syntax).toBe('less');
+  });
+
+  it('resolves CSS custom properties that reference preprocessor variables', () => {
+    const definitions = scanVariableDefinitions('$primary: #1677ff; @danger: #ff4d4f; :root { --brand: $primary; --danger: @danger; }');
+    const resolver = new CssVariableResolver();
+
+    const brandResult = resolver.resolveVarCall('var(--brand)', definitions, []);
+    const dangerResult = resolver.resolveVarCall('var(--danger)', definitions, []);
+
+    expect(brandResult.colors).toEqual(['#1677ff']);
+    expect(dangerResult.colors).toEqual(['#ff4d4f']);
+  });
+
+  it('guards circular preprocessor variable references', () => {
+    const definitions = scanVariableDefinitions('$a: $b; $b: $a;');
+    const resolver = new CssVariableResolver();
+
+    const result = resolver.resolvePreprocessorVariable('$a', 'sass', definitions, []);
+
+    expect(result.colors).toEqual([]);
+    expect(result.error).toBe('检测到 CSS 变量循环引用。');
+  });
 });

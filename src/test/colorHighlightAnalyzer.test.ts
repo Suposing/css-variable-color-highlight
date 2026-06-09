@@ -32,4 +32,39 @@ describe('analyzeDocumentColors', () => {
     expect(variable?.colors).toEqual([]);
     expect(variable?.error).toBe('未找到 CSS 变量定义。');
   });
+
+  it('hydrates Sass variable occurrences with resolved colors', () => {
+    const analysis = analyzeDocumentColors(
+      '$brand: #1677ff;\n.button { color: $brand; }',
+      'file:///button.scss',
+      [],
+      true,
+    );
+
+    const variable = analysis.occurrences.find((occurrence) => occurrence.kind === 'preprocessorVariable');
+
+    expect(variable?.colors).toEqual(['#1677ff']);
+    expect(variable?.definition?.name).toBe('$brand');
+    expect(variable?.definition?.syntax).toBe('sass');
+  });
+
+  it('hydrates Less variable occurrences from workspace definitions', () => {
+    const workspaceAnalysis = analyzeDocumentColors(
+      '@brand: #1677ff;',
+      'file:///theme.less',
+      [],
+      true,
+    );
+    const analysis = analyzeDocumentColors(
+      '.button { color: @brand; }',
+      'file:///button.less',
+      workspaceAnalysis.definitions,
+      true,
+    );
+
+    const variable = analysis.occurrences.find((occurrence) => occurrence.kind === 'preprocessorVariable');
+
+    expect(variable?.colors).toEqual(['#1677ff']);
+    expect(variable?.definition?.sourceUri).toBe('file:///theme.less');
+  });
 });

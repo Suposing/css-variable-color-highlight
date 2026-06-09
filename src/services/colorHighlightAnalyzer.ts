@@ -36,15 +36,22 @@ export function analyzeDocumentColors(
   });
 
   const occurrences = scanResult.occurrences.map((occurrence) => {
-    if (occurrence.kind !== 'variable') {
+    if (occurrence.kind === 'color') {
       return occurrence;
     }
 
-    const resolved = resolver.resolveVarCall(
-      occurrence.text,
-      scanResult.definitions,
-      workspaceDefinitions,
-    );
+    const resolved = occurrence.kind === 'preprocessorVariable' && occurrence.variableName && occurrence.variableSyntax
+      ? resolver.resolvePreprocessorVariable(
+        occurrence.variableName,
+        occurrence.variableSyntax,
+        scanResult.definitions,
+        workspaceDefinitions,
+      )
+      : resolver.resolveVarCall(
+        occurrence.text,
+        scanResult.definitions,
+        workspaceDefinitions,
+      );
 
     return {
       ...occurrence,

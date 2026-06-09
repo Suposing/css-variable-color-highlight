@@ -78,7 +78,15 @@ export class CssVariableHoverProvider implements vscode.HoverProvider {
       return markdown;
     }
 
-    markdown.appendMarkdown('**CSS 变量颜色**\n\n');
+    const variableLabel = occurrence.kind === 'preprocessorVariable'
+      ? `${occurrence.variableSyntax === 'sass' ? 'Sass' : 'Less'} 变量颜色`
+      : 'CSS 变量颜色';
+
+    markdown.appendMarkdown(`**${variableLabel}**\n\n`);
+
+    if (occurrence.variableName) {
+      markdown.appendMarkdown(`- 变量：\`${occurrence.variableName}\`\n`);
+    }
 
     if (occurrence.colors.length > 0) {
       markdown.appendMarkdown(`- 解析值：\`${occurrence.colors.join('`, `')}\`\n`);

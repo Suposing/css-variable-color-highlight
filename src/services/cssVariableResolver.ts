@@ -1,6 +1,7 @@
 import type {
   CssVariableDefinition,
   ResolveOptions,
+  StyleVariableSyntax,
   VariableResolveResult,
 } from '../types/colorHighlight';
 import { extractColors } from '../utils/color';
@@ -87,12 +88,34 @@ export class CssVariableResolver {
   }
 
   /**
+   * @description 解析 Sass/Less 预处理器变量，支持简单定义、嵌套引用和循环保护。
+   * @param variableName 预处理器变量名，Sass 变量包含 `$` 前缀，Less 变量包含 `@` 前缀。
+   * @param syntax 变量语法来源，用于避免 Sass 和 Less 同名变量互相串用。
+   * @param localDefinitions 当前文档中的变量定义。
+   * @param workspaceDefinitions 工作区索引中的变量定义快照。
+   * @returns 变量解析结果；缺失定义、循环引用或非颜色值都会通过 `error` 表达。
+   */
+  public resolvePreprocessorVariable(
+    variableName: string,
+    syntax: StyleVariableSyntax,
+    localDefinitions: CssVariableDefinition[],
+    workspaceDefinitions: CssVariableDefinition[],
+  ): VariableResolveResult {
+    return this.resolveVariable(variableName, localDefinitions, workspaceDefinitions, {
+      raw: variableName,
+      depth: 0,
+      visited: new Set<string>(),
+      syntax,
+    });
+  }
+
+  /**
    * @description 递归解析变量名对应的定义，优先使用当前文档定义，再回退到工作区索引。
-   * @param variableName CSS 变量名，必须包含 `--` 前缀。
+   * @param variableName 样式变量名，CSS 变量包含 `--` 前缀，Sass/Less 变量包含 `$` 或 `@` 前缀。
    * @param localDefinitions 当前文档中的变量定义。
    * @param workspaceDefinitions 工作区索引中的变量定义快照。
    * @param state 递归解析状态，用于保留原始表达式、fallback、深度和循环引用检测集合。
-   * @returns CSS 变量解析结果；超出深度、循环引用、缺失定义或非颜色值都会通过 `error` 表达。
+   * @returns 样式变量解析结果；超出深度、循环引用、缺失定义或非颜色值都会通过 `error` 表达。
    */
   private resolveVariable(
     variableName: string,
@@ -103,6 +126,7 @@ export class CssVariableResolver {
       fallback?: string;
       depth: number;
       visited: Set<string>;
+      syntax?: StyleVariableSyntax;
     },
   ): VariableResolveResult {
     if (state.depth > this.options.maxDepth) {
@@ -125,7 +149,7 @@ export class CssVariableResolver {
       };
     }
 
-    const definition = this.findDefinition(variableName, localDefinitions, workspaceDefinitions);
+    const definition = this.findDefinition(variableName, localDefinitions, workspaceDefinitions, state.syntax);
     if (!definition) {
       const fallbackColors = this.options.resolveFallback && state.fallback
         ? this.resolveFallbackColors(state.fallback, localDefinitions, workspaceDefinitions, state.depth)
@@ -143,17 +167,28 @@ export class CssVariableResolver {
 
     const directColors = extractColors(definition.value);
     const nestedVariables = findVarFunctions(definition.value);
+    const nestedPreprocessorVariables = this.findPreprocessorVariables(definition.value, definition.syntax);
     const visited = new Set(state.visited);
     visited.add(variableName);
 
-    const nestedResults = nestedVariables.map((match) => (
-      this.resolveVariable(match.name, localDefinitions, workspaceDefinitions, {
-        raw: match.text,
-        fallback: match.fallback,
-        depth: state.depth + 1,
-        visited,
-      })
-    ));
+    const nestedResults = [
+      ...nestedVariables.map((match) => (
+        this.resolveVariable(match.name, localDefinitions, workspaceDefinitions, {
+          raw: match.text,
+          fallback: match.fallback,
+          depth: state.depth + 1,
+          visited,
+        })
+      )),
+      ...nestedPreprocessorVariables.map((match) => (
+        this.resolveVariable(match.name, localDefinitions, workspaceDefinitions, {
+          raw: match.name,
+          depth: state.depth + 1,
+          visited,
+          syntax: match.syntax,
+        })
+      )),
+    ];
     const nestedColors = nestedResults.flatMap((result) => result.colors);
 
     const colors = [...directColors, ...nestedColors];
@@ -173,7 +208,7 @@ export class CssVariableResolver {
   /**
    * @description 从当前文档和工作区定义中查找变量定义。
    * @description 当前文档内同名变量取最后一个定义，以近似匹配 CSS 后定义覆盖前定义的常见写法。
-   * @param variableName CSS 变量名。
+   * @param variableName 样式变量名。
    * @param localDefinitions 当前文档中的变量定义。
    * @param workspaceDefinitions 工作区索引中的变量定义快照。
    * @returns 最优先的变量定义；未找到时返回 undefined。
@@ -182,13 +217,20 @@ export class CssVariableResolver {
     variableName: string,
     localDefinitions: CssVariableDefinition[],
     workspaceDefinitions: CssVariableDefinition[],
+    syntax?: StyleVariableSyntax,
   ): CssVariableDefinition | undefined {
-    const localDefinition = [...localDefinitions].reverse().find((definition) => definition.name === variableName);
+    const localDefinition = [...localDefinitions].reverse().find((definition) => (
+      definition.name === variableName
+      && this.matchesSyntax(definition, syntax)
+    ));
     if (localDefinition) {
       return localDefinition;
     }
 
-    return workspaceDefinitions.find((definition) => definition.name === variableName);
+    return workspaceDefinitions.find((definition) => (
+      definition.name === variableName
+      && this.matchesSyntax(definition, syntax)
+    ));
   }
 
   /**
@@ -216,5 +258,45 @@ export class CssVariableResolver {
     ));
 
     return [...directColors, ...variableColors];
+  }
+
+  /**
+   * @description 判断变量定义是否匹配当前解析语法；未标记 syntax 的旧定义按 CSS 变量处理。
+   * @param definition 候选变量定义。
+   * @param syntax 当前解析语法；为空时表示 CSS 自定义属性。
+   * @returns 语法一致时返回 true。
+   */
+  private matchesSyntax(definition: CssVariableDefinition, syntax?: StyleVariableSyntax): boolean {
+    return (definition.syntax ?? 'css') === (syntax ?? 'css');
+  }
+
+  /**
+   * @description 查找变量值中的 Sass/Less 变量引用。
+   * @description Sass/Less 定义只扫描自身语法；CSS 自定义属性值会同时尝试 `$` 和 `@`，用于支持预处理器变量写入 CSS 变量。
+   * @param value 变量定义值。
+   * @param syntax 当前定义的语法来源。
+   * @returns 预处理器变量引用列表。
+   */
+  private findPreprocessorVariables(
+    value: string,
+    syntax?: StyleVariableSyntax,
+  ): Array<{ name: string; syntax: StyleVariableSyntax }> {
+    const matches: Array<{ name: string; syntax: StyleVariableSyntax }> = [];
+
+    if (syntax === 'sass' || syntax === 'css' || !syntax) {
+      matches.push(...Array.from(value.matchAll(/\$[\w-]+/g)).map((match) => ({
+        name: match[0],
+        syntax: 'sass' as const,
+      })));
+    }
+
+    if (syntax === 'less' || syntax === 'css' || !syntax) {
+      matches.push(...Array.from(value.matchAll(/@[\w-]+/g)).map((match) => ({
+        name: match[0],
+        syntax: 'less' as const,
+      })));
+    }
+
+    return matches;
   }
 }

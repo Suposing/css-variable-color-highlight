@@ -1,4 +1,9 @@
-import type { ColorOccurrence, CssVariableDefinition, DocumentScanResult } from '../types/colorHighlight';
+import type {
+  ColorOccurrence,
+  CssVariableDefinition,
+  DocumentScanResult,
+  StyleVariableSyntax,
+} from '../types/colorHighlight';
 import { COLOR_PATTERNS, extractColors, isColorValue } from '../utils/color';
 import { findVarFunctions } from '../utils/cssValue';
 import { createSourceRange } from '../utils/range';
@@ -8,6 +13,46 @@ import { createSourceRange } from '../utils/range';
  * @description 当前实现不做完整 CSS AST 解析，不跨越 `{}`，也不处理缺失分号的定义。
  */
 const CSS_VARIABLE_DEFINITION_PATTERN = /(--[\w-]+)\s*:\s*([^;{}]+);/g;
+
+/**
+ * @description 匹配 Sass/SCSS 变量定义，例如 `$color-primary: #1677ff;`。
+ * @description 支持 SCSS 的分号结尾和 Sass 缩进语法的行尾结尾，不执行 Sass 表达式或模块系统。
+ */
+const SASS_VARIABLE_DEFINITION_PATTERN = /(\$[\w-]+)\s*:\s*([^;\r\n{}]+)(?:;|$)/gm;
+
+/**
+ * @description 匹配 Less 变量定义，例如 `@color-primary: #1677ff;`。
+ * @description 要求变量名后出现冒号，避免把 `@media`、`@import` 等 at-rule 误识别为变量定义。
+ */
+const LESS_VARIABLE_DEFINITION_PATTERN = /(@[\w-]+)\s*:\s*([^;{}]+);/g;
+
+/**
+ * @description 匹配 Sass/SCSS 变量使用位置。
+ */
+const SASS_VARIABLE_OCCURRENCE_PATTERN = /\$[\w-]+/g;
+
+/**
+ * @description 匹配 Less 变量使用位置。
+ */
+const LESS_VARIABLE_OCCURRENCE_PATTERN = /@[\w-]+/g;
+
+/**
+ * @description Less 变量扫描需要跳过的 CSS/Less at-rule 名称，避免把语法关键字当作变量使用。
+ */
+const IGNORED_LESS_AT_RULE_NAMES = new Set([
+  '@charset',
+  '@container',
+  '@document',
+  '@font-face',
+  '@import',
+  '@keyframes',
+  '@layer',
+  '@media',
+  '@namespace',
+  '@page',
+  '@property',
+  '@supports',
+]);
 
 /**
  * @description 扫描单个文档中的 CSS 变量定义和可高亮颜色出现位置。
@@ -21,6 +66,7 @@ export function scanDocument(text: string, sourceUri?: string): DocumentScanResu
   const occurrences = [
     ...scanPlainColors(text),
     ...scanVariableOccurrences(text),
+    ...scanPreprocessorVariableOccurrences(text, definitions),
   ].sort((a, b) => a.range.start - b.range.start);
 
   return {
@@ -37,28 +83,11 @@ export function scanDocument(text: string, sourceUri?: string): DocumentScanResu
  * @returns 变量定义列表；不合法或不完整的定义会被跳过。
  */
 export function scanVariableDefinitions(text: string, sourceUri?: string): CssVariableDefinition[] {
-  const definitions: CssVariableDefinition[] = [];
-
-  for (const match of text.matchAll(CSS_VARIABLE_DEFINITION_PATTERN)) {
-    if (typeof match.index !== 'number') {
-      continue;
-    }
-
-    const name = match[1];
-    const value = match[2].trim();
-    const valueStart = match.index + match[0].indexOf(match[2]);
-    const valueEnd = valueStart + match[2].length;
-
-    definitions.push({
-      name,
-      value,
-      range: createSourceRange(text, match.index, match.index + match[0].length),
-      valueRange: createSourceRange(text, valueStart, valueEnd),
-      sourceUri,
-    });
-  }
-
-  return definitions;
+  return [
+    ...scanDefinitionsByPattern(text, sourceUri, CSS_VARIABLE_DEFINITION_PATTERN, 'css'),
+    ...scanDefinitionsByPattern(text, sourceUri, SASS_VARIABLE_DEFINITION_PATTERN, 'sass'),
+    ...scanDefinitionsByPattern(text, sourceUri, LESS_VARIABLE_DEFINITION_PATTERN, 'less'),
+  ].sort((a, b) => a.range.start - b.range.start);
 }
 
 /**
@@ -106,6 +135,122 @@ function scanVariableOccurrences(text: string): ColorOccurrence[] {
     colors: match.fallback ? extractColors(match.fallback) : [],
     range: createSourceRange(text, match.start, match.end),
   }));
+}
+
+/**
+ * @description 按指定语法正则扫描变量定义，并记录值范围和来源。
+ * @param text 文档完整文本。
+ * @param sourceUri 文档 URI 字符串；当前文档临时扫描时可省略。
+ * @param pattern 变量定义匹配正则，必须捕获变量名和值。
+ * @param syntax 变量语法来源。
+ * @returns 指定语法的变量定义列表。
+ */
+function scanDefinitionsByPattern(
+  text: string,
+  sourceUri: string | undefined,
+  pattern: RegExp,
+  syntax: StyleVariableSyntax,
+): CssVariableDefinition[] {
+  const definitions: CssVariableDefinition[] = [];
+
+  for (const match of text.matchAll(pattern)) {
+    if (typeof match.index !== 'number') {
+      continue;
+    }
+
+    const name = match[1];
+    const value = match[2].trim();
+    const valueStart = match.index + match[0].indexOf(match[2]);
+    const valueEnd = valueStart + match[2].length;
+
+    definitions.push({
+      name,
+      syntax,
+      value,
+      range: createSourceRange(text, match.index, match.index + match[0].length),
+      valueRange: createSourceRange(text, valueStart, valueEnd),
+      sourceUri,
+    });
+  }
+
+  return definitions;
+}
+
+/**
+ * @description 扫描 Sass/Less 变量使用位置，并跳过变量定义自身。
+ * @param text 文档完整文本。
+ * @param definitions 当前文档变量定义，用于排除定义名范围。
+ * @returns Sass/Less 变量使用位置；此阶段只提取直接颜色，最终解析由 resolver 完成。
+ */
+function scanPreprocessorVariableOccurrences(
+  text: string,
+  definitions: CssVariableDefinition[],
+): ColorOccurrence[] {
+  return [
+    ...scanPreprocessorVariableOccurrencesByPattern(text, definitions, SASS_VARIABLE_OCCURRENCE_PATTERN, 'sass'),
+    ...scanPreprocessorVariableOccurrencesByPattern(text, definitions, LESS_VARIABLE_OCCURRENCE_PATTERN, 'less'),
+  ];
+}
+
+/**
+ * @description 按指定语法扫描预处理器变量使用位置。
+ * @param text 文档完整文本。
+ * @param definitions 当前文档变量定义，用于排除定义名范围。
+ * @param pattern 变量使用匹配正则。
+ * @param syntax 变量语法来源。
+ * @returns 预处理器变量使用位置列表。
+ */
+function scanPreprocessorVariableOccurrencesByPattern(
+  text: string,
+  definitions: CssVariableDefinition[],
+  pattern: RegExp,
+  syntax: StyleVariableSyntax,
+): ColorOccurrence[] {
+  const occurrences: ColorOccurrence[] = [];
+
+  for (const match of text.matchAll(pattern)) {
+    if (
+      typeof match.index !== 'number'
+      || isDefinitionNameMatch(match.index, definitions)
+      || isIgnoredPreprocessorVariable(match[0], syntax)
+    ) {
+      continue;
+    }
+
+    occurrences.push({
+      kind: 'preprocessorVariable',
+      text: match[0],
+      variableName: match[0],
+      variableSyntax: syntax,
+      colors: [],
+      range: createSourceRange(text, match.index, match.index + match[0].length),
+    });
+  }
+
+  return occurrences;
+}
+
+/**
+ * @description 判断当前匹配是否落在变量定义名范围内，避免定义处被当作使用处重复装饰。
+ * @param start 匹配起始偏移量。
+ * @param definitions 当前文档变量定义列表。
+ * @returns 匹配属于定义名时返回 true。
+ */
+function isDefinitionNameMatch(start: number, definitions: CssVariableDefinition[]): boolean {
+  return definitions.some((definition) => (
+    start >= definition.range.start
+    && start < definition.valueRange.start
+  ));
+}
+
+/**
+ * @description 判断预处理器变量命中是否属于应忽略的语法关键字。
+ * @param name 命中的变量或 at-rule 文本。
+ * @param syntax 变量语法来源。
+ * @returns 当前命中应被忽略时返回 true。
+ */
+function isIgnoredPreprocessorVariable(name: string, syntax: StyleVariableSyntax): boolean {
+  return syntax === 'less' && IGNORED_LESS_AT_RULE_NAMES.has(name.toLowerCase());
 }
 
 /**

@@ -29,13 +29,22 @@ export interface SourceRange {
 }
 
 /**
- * @description CSS 变量定义在源码中的位置与原始值。
+ * @description 可被静态解析的样式变量语法来源。
+ */
+export type StyleVariableSyntax = 'css' | 'sass' | 'less';
+
+/**
+ * @description 样式变量定义在源码中的位置与原始值。
  */
 export interface CssVariableDefinition {
   /**
-   * @description CSS 变量名，包含 `--` 前缀。
+   * @description 变量名，CSS 变量包含 `--` 前缀，Sass 变量包含 `$` 前缀，Less 变量包含 `@` 前缀。
    */
   name: string;
+  /**
+   * @description 变量语法来源；未设置时按 CSS 自定义属性处理，以兼容旧调用方。
+   */
+  syntax?: StyleVariableSyntax;
   /**
    * @description 变量冒号后的原始值，已去除首尾空白。
    */
@@ -59,9 +68,9 @@ export interface CssVariableDefinition {
  */
 export interface ColorOccurrence {
   /**
-   * @description 出现位置类型：`color` 表示普通颜色；`variable` 表示 `var()` 调用。
+   * @description 出现位置类型：`color` 表示普通颜色；`variable` 表示 `var()` 调用；`preprocessorVariable` 表示 Sass/Less 变量。
    */
-  kind: 'color' | 'variable';
+  kind: 'color' | 'variable' | 'preprocessorVariable';
   /**
    * @description 源码中的原始命中文本。
    */
@@ -75,9 +84,13 @@ export interface ColorOccurrence {
    */
   colors: string[];
   /**
-   * @description 当 `kind` 为 `variable` 时的 CSS 变量名。
+   * @description 当 `kind` 为 `variable` 或 `preprocessorVariable` 时的变量名。
    */
   variableName?: string;
+  /**
+   * @description 当 `kind` 为 `preprocessorVariable` 时的 Sass/Less 变量语法来源。
+   */
+  variableSyntax?: StyleVariableSyntax;
   /**
    * @description `var()` 调用中的 fallback 原始文本；没有 fallback 时为空。
    */
@@ -97,11 +110,11 @@ export interface ColorOccurrence {
  */
 export interface DocumentScanResult {
   /**
-   * @description 文档中所有普通颜色和 `var()` 调用，按源码出现顺序排列。
+   * @description 文档中所有普通颜色、`var()` 调用和 Sass/Less 变量使用，按源码出现顺序排列。
    */
   occurrences: ColorOccurrence[];
   /**
-   * @description 文档中扫描到的 CSS 变量定义。
+   * @description 文档中扫描到的 CSS/Sass/Less 变量定义。
    */
   definitions: CssVariableDefinition[];
 }
