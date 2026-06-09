@@ -3,7 +3,7 @@
   "displayName": "CSS 变量颜色高亮",
   "description": "在 VS Code 中高亮 CSS 颜色和 CSS 变量解析后的颜色。",
   "version": "0.0.1",
-  "publisher": "local",
+  "publisher": "supposing",
   "license": "MIT",
   "engines": {
     "vscode": "^1.90.0"
