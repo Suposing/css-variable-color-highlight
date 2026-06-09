@@ -1,0 +1,159 @@
+{
+  "name": "css-variable-color-highlight",
+  "displayName": "CSS 变量颜色高亮",
+  "description": "在 VS Code 中高亮 CSS 颜色和 CSS 变量解析后的颜色。",
+  "version": "0.0.1",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:css",
+    "onLanguage:scss",
+    "onLanguage:sass",
+    "onLanguage:less",
+    "onLanguage:postcss",
+    "onLanguage:vue",
+    "onLanguage:html",
+    "onLanguage:svelte",
+    "onLanguage:astro",
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescriptreact"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "CSS 变量颜色高亮",
+      "properties": {
+        "cssVariableColorHighlight.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用 CSS 颜色和 CSS 变量颜色高亮。"
+        },
+        "cssVariableColorHighlight.languages": {
+          "type": "array",
+          "default": [
+            "css",
+            "scss",
+            "sass",
+            "less",
+            "postcss",
+            "vue",
+            "html",
+            "svelte",
+            "astro",
+            "javascript",
+            "typescript",
+            "javascriptreact",
+            "typescriptreact"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "插件扫描颜色的 VS Code 语言 ID 列表。"
+        },
+        "cssVariableColorHighlight.include": {
+          "type": "array",
+          "default": [
+            "**/*.{css,scss,sass,less,postcss,vue,html,svelte,astro,js,jsx,ts,tsx}"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "用于建立 CSS 变量定义索引的工作区文件匹配规则。"
+        },
+        "cssVariableColorHighlight.exclude": {
+          "type": "array",
+          "default": [
+            "**/node_modules/**",
+            "**/dist/**",
+            "**/out/**",
+            "**/.git/**"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "建立 CSS 变量定义索引时排除的工作区文件匹配规则。"
+        },
+        "cssVariableColorHighlight.showDecorations": {
+          "type": "boolean",
+          "default": true,
+          "description": "在颜色值和已解析的 CSS 变量旁显示颜色装饰。"
+        },
+        "cssVariableColorHighlight.decorationStyle": {
+          "type": "string",
+          "default": "background",
+          "enum": [
+            "background",
+            "swatch",
+            "both"
+          ],
+          "enumDescriptions": [
+            "使用解析后的颜色高亮命中文本背景。",
+            "在命中文本后显示一个小色块。",
+            "同时高亮命中文本背景并显示小色块。"
+          ],
+          "description": "控制已解析颜色在编辑器中的展示方式。"
+        },
+        "cssVariableColorHighlight.showUnresolvedVariableDecorations": {
+          "type": "boolean",
+          "default": true,
+          "description": "为无法解析为颜色的 CSS 变量显示轻量提示装饰。"
+        },
+        "cssVariableColorHighlight.unresolvedVariableDecorationStyle": {
+          "type": "string",
+          "default": "both",
+          "enum": [
+            "border",
+            "underline",
+            "both"
+          ],
+          "enumDescriptions": [
+            "仅在无法解析的 CSS 变量周围显示红色边框。",
+            "仅在无法解析的 CSS 变量下方显示红色波浪线。",
+            "同时显示红色边框和红色波浪线。"
+          ],
+          "description": "控制无法解析的 CSS 变量在编辑器中的标记方式。"
+        },
+        "cssVariableColorHighlight.showHover": {
+          "type": "boolean",
+          "default": true,
+          "description": "鼠标悬浮在颜色或 CSS 变量上时显示解析信息。"
+        },
+        "cssVariableColorHighlight.maxWorkspaceFiles": {
+          "type": "number",
+          "default": 3000,
+          "minimum": 1,
+          "description": "为查找 CSS 变量定义最多扫描的工作区文件数量。"
+        },
+        "cssVariableColorHighlight.resolveFallback": {
+          "type": "boolean",
+          "default": true,
+          "description": "CSS 变量无法解析时，使用 var() 中的备用值。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "tsc --noEmit -p ./",
+    "test": "vitest run",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.12",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.2.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.1"
+  }
+}

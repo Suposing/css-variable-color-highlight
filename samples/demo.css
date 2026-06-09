@@ -1,0 +1,19 @@
+:root {
+  --dd-white: #ffffff;
+  --dd-brand: #f7fafc;
+  --dd-gradient-primary-deep: linear-gradient(180deg, var(--dd-white) 0%, var(--dd-brand) 100%);
+  --dd-shadow-primary-24: rgba(24, 39, 75, 0.14);
+  --dd-cycle-a: var(--dd-cycle-b);
+  --dd-cycle-b: var(--dd-cycle-a);
+}
+
+.order-cancel-reason-popup__hero {
+  background: linear-gradient(180deg, var(--dd-white) 0%, #f7fafc 100%);
+}
+
+.order-cancel-reason-popup__primary {
+  background: var(--dd-gradient-primary-deep);
+  box-shadow: 0 14px 28px var(--dd-shadow-primary-24);
+  color: var(--missing-color, red);
+  border-color: var(--dd-cycle-a);
+}
