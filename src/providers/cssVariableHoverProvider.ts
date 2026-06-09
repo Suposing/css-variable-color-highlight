@@ -3,6 +3,7 @@ import { analyzeDocumentColors } from '../services/colorHighlightAnalyzer';
 import type { ExtensionConfiguration } from '../services/configurationService';
 import type { WorkspaceVariableIndex } from '../services/workspaceVariableIndex';
 import type { ColorOccurrence } from '../types/colorHighlight';
+import { shouldDisplayOccurrenceForHighlightMode } from '../utils/highlightMode';
 import { isOffsetInRange } from '../utils/range';
 import { formatSourceLocation, toVscodeRange } from '../utils/vscodeRange';
 
@@ -53,6 +54,7 @@ export class CssVariableHoverProvider implements vscode.HoverProvider {
       this.configuration.resolveFallback,
     );
     const occurrence = analysis.occurrences
+      .filter((item) => shouldDisplayOccurrenceForHighlightMode(item.kind, this.configuration.highlightMode))
       .filter((item) => isOffsetInRange(offset, item.range))
       .sort((a, b) => (a.range.end - a.range.start) - (b.range.end - b.range.start))[0];
 

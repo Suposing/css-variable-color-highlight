@@ -34,6 +34,11 @@ export interface SourceRange {
 export type StyleVariableSyntax = 'css' | 'sass' | 'less';
 
 /**
+ * @description 插件展示目标范围；用于控制普通颜色和变量颜色是否参与装饰与 hover。
+ */
+export type HighlightMode = 'all' | 'variables' | 'colors';
+
+/**
  * @description 样式变量定义在源码中的位置与原始值。
  */
 export interface CssVariableDefinition {

@@ -87,6 +87,21 @@
           "default": true,
           "description": "在颜色值和已解析的 CSS 变量旁显示颜色装饰。"
         },
+        "cssVariableColorHighlight.highlightMode": {
+          "type": "string",
+          "default": "all",
+          "enum": [
+            "all",
+            "variables",
+            "colors"
+          ],
+          "enumDescriptions": [
+            "同时显示普通颜色和变量颜色高亮。",
+            "只显示 CSS/Sass/Less 变量颜色高亮，适合与 color-highlight 共存。",
+            "只显示普通颜色高亮。"
+          ],
+          "description": "控制插件高亮和 hover 的目标范围。"
+        },
         "cssVariableColorHighlight.decorationStyle": {
           "type": "string",
           "default": "background",

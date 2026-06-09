@@ -3,6 +3,7 @@ import { analyzeDocumentColors } from '../services/colorHighlightAnalyzer';
 import type { ExtensionConfiguration } from '../services/configurationService';
 import type { WorkspaceVariableIndex } from '../services/workspaceVariableIndex';
 import { getReadableTextColor, toDisplayColor } from '../utils/color';
+import { shouldDisplayOccurrenceForHighlightMode } from '../utils/highlightMode';
 import { toVscodeRange } from '../utils/vscodeRange';
 
 /**
@@ -129,6 +130,10 @@ export class ColorDecorationProvider implements vscode.Disposable {
     const unresolvedVariableOptions: vscode.DecorationOptions[] = [];
 
     for (const occurrence of analysis.occurrences) {
+      if (!shouldDisplayOccurrenceForHighlightMode(occurrence.kind, this.configuration.highlightMode)) {
+        continue;
+      }
+
       const color = occurrence.colors[0];
       if (!color) {
         if (

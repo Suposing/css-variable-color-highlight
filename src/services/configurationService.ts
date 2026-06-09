@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import type { HighlightMode } from '../types/colorHighlight';
+import { normalizeHighlightMode } from '../utils/highlightMode';
 
 /**
  * @description VS Code 配置命名空间，必须与 `package.json` 中的 `contributes.configuration` 保持一致。
@@ -29,6 +31,10 @@ export interface ExtensionConfiguration {
    * @description 是否在编辑器中显示颜色色块或背景装饰。
    */
   showDecorations: boolean;
+  /**
+   * @description 高亮和 hover 的目标范围；用于与普通颜色高亮插件共存。
+   */
+  highlightMode: HighlightMode;
   /**
    * @description 已解析颜色的编辑器展示样式。
    */
@@ -78,6 +84,7 @@ export function getExtensionConfiguration(): ExtensionConfiguration {
     include: configuration.get('include', defaultInclude),
     exclude: configuration.get('exclude', defaultExclude),
     showDecorations: configuration.get('showDecorations', true),
+    highlightMode: normalizeHighlightMode(configuration.get('highlightMode', 'all')),
     decorationStyle: configuration.get<DecorationStyle>('decorationStyle', 'background'),
     showUnresolvedVariableDecorations: configuration.get('showUnresolvedVariableDecorations', true),
     unresolvedVariableDecorationStyle: configuration.get<UnresolvedVariableDecorationStyle>('unresolvedVariableDecorationStyle', 'both'),

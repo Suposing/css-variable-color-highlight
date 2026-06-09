@@ -30,12 +30,21 @@ pnpm test
 - `cssVariableColorHighlight.include`：用于建立 CSS 变量定义索引的工作区文件匹配规则。
 - `cssVariableColorHighlight.exclude`：建立 CSS 变量定义索引时排除的工作区文件匹配规则。
 - `cssVariableColorHighlight.showDecorations`：在颜色值和已解析的 CSS 变量旁显示颜色装饰。
+- `cssVariableColorHighlight.highlightMode`：控制高亮和 hover 的目标范围，可选 `all`、`variables`、`colors`，默认 `all`。如果想保留 `color-highlight` 处理普通颜色，只使用本插件的变量高亮，可设置为 `variables`。
 - `cssVariableColorHighlight.decorationStyle`：已解析颜色的展示方式，可选 `background`、`swatch`、`both`，默认 `background`。
 - `cssVariableColorHighlight.showUnresolvedVariableDecorations`：为无法解析为颜色的 CSS 变量显示轻量提示装饰，默认开启。
 - `cssVariableColorHighlight.unresolvedVariableDecorationStyle`：无法解析变量的标记方式，可选 `border`、`underline`、`both`，默认 `both`。
 - `cssVariableColorHighlight.showHover`：鼠标悬浮在颜色或 CSS 变量上时显示解析信息。
 - `cssVariableColorHighlight.maxWorkspaceFiles`：为查找 CSS 变量定义最多扫描的工作区文件数量。
 - `cssVariableColorHighlight.resolveFallback`：CSS 变量无法解析时，使用 `var()` 中的备用值。
+
+与 `color-highlight` 共存时，可以在设置中加入：
+
+```json
+{
+  "cssVariableColorHighlight.highlightMode": "variables"
+}
+```
 
 ## 已知限制
 
