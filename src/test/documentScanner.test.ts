@@ -163,4 +163,33 @@ $brand-accent: rebeccapurple
       }),
     ]);
   });
+
+  it('does not treat Vue template event bindings as Less variables', () => {
+    const result = scanDocument(`
+<template>
+  <HomeQuickActions
+    class="mt-[-56rpx]"
+    @create-order="showPendingToast"
+    @driver-call.stop="showPendingToast"
+    @update:model-value="handleUpdate"
+  />
+</template>
+
+<style lang="less">
+@brand-primary: #1677ff;
+
+.button {
+  color: @brand-primary;
+}
+</style>
+`, 'file:///Home.vue');
+    const variableOccurrences = result.occurrences.filter((item) => item.kind === 'preprocessorVariable');
+
+    expect(variableOccurrences).toEqual([
+      expect.objectContaining({
+        variableName: '@brand-primary',
+        variableSyntax: 'less',
+      }),
+    ]);
+  });
 });

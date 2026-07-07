@@ -22,9 +22,9 @@ const SASS_VARIABLE_DEFINITION_PATTERN = /(\$[\w-]+)\s*:\s*([^;\r\n{}]+)(?:;|$)/
 
 /**
  * @description 匹配 Less 变量定义，例如 `@color-primary: #1677ff;`。
- * @description 要求变量名后出现冒号，避免把 `@media`、`@import` 等 at-rule 误识别为变量定义。
+ * @description 要求变量名后出现冒号且定义值不跨行，避免把模板事件 `@update:model-value` 跨行误识别为变量定义。
  */
-const LESS_VARIABLE_DEFINITION_PATTERN = /(@[\w-]+)\s*:\s*([^;{}]+);/g;
+const LESS_VARIABLE_DEFINITION_PATTERN = /(@[\w-]+)\s*:\s*([^;\r\n{}]+);/g;
 
 /**
  * @description 匹配 Sass/SCSS 变量使用位置。
@@ -209,10 +209,12 @@ function scanPreprocessorVariableOccurrencesByPattern(
   const occurrences: ColorOccurrence[] = [];
 
   for (const match of text.matchAll(pattern)) {
+    const start = match.index;
     if (
-      typeof match.index !== 'number'
-      || isDefinitionNameMatch(match.index, definitions)
+      typeof start !== 'number'
+      || isDefinitionNameMatch(start, definitions)
       || isIgnoredPreprocessorVariable(match[0], syntax)
+      || isTemplateEventBindingMatch(text, start, start + match[0].length, syntax)
     ) {
       continue;
     }
@@ -223,7 +225,7 @@ function scanPreprocessorVariableOccurrencesByPattern(
       variableName: match[0],
       variableSyntax: syntax,
       colors: [],
-      range: createSourceRange(text, match.index, match.index + match[0].length),
+      range: createSourceRange(text, start, start + match[0].length),
     });
   }
 
@@ -251,6 +253,42 @@ function isDefinitionNameMatch(start: number, definitions: CssVariableDefinition
  */
 function isIgnoredPreprocessorVariable(name: string, syntax: StyleVariableSyntax): boolean {
   return syntax === 'less' && IGNORED_LESS_AT_RULE_NAMES.has(name.toLowerCase());
+}
+
+/**
+ * @description 判断 Less 变量命中是否实际是模板里的事件绑定简写，例如 `@click` 或 `@update:model-value`。
+ * @description 只在打开标签属性区间内过滤，避免误伤 Less 表达式和 guard 中的变量比较。
+ * @param text 文档完整文本。
+ * @param start 命中起始偏移量。
+ * @param end 命中结束偏移量。
+ * @param syntax 当前变量语法来源。
+ * @returns 命中属于模板事件绑定属性名时返回 true。
+ */
+function isTemplateEventBindingMatch(
+  text: string,
+  start: number,
+  end: number,
+  syntax: StyleVariableSyntax,
+): boolean {
+  if (syntax !== 'less' || !isInsideOpeningTag(text, start)) {
+    return false;
+  }
+
+  const rest = text.slice(end);
+  return /^(?:(?::[\w-]+)|(?:\.[\w-]+))*\s*=/.test(rest);
+}
+
+/**
+ * @description 判断指定偏移量是否位于模板打开标签内，用于区分 HTML/Vue 属性和样式语法。
+ * @param text 文档完整文本。
+ * @param offset 需要判断的字符偏移量。
+ * @returns 最近的 `<` 出现在最近的 `>` 之后时返回 true。
+ */
+function isInsideOpeningTag(text: string, offset: number): boolean {
+  const previousOpenTag = text.lastIndexOf('<', offset);
+  const previousCloseTag = text.lastIndexOf('>', offset);
+
+  return previousOpenTag > previousCloseTag;
 }
 
 /**
