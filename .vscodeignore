@@ -1,0 +1,14 @@
+.git/**
+.vscode/**
+node_modules/**
+src/**
+samples/**
+test/**
+*.vsix
+
+.gitignore
+AGENTS.md
+JSDOC_STYLE.md
+pnpm-lock.yaml
+tsconfig.json
+vitest.config.ts
