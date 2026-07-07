@@ -33,6 +33,20 @@ describe('analyzeDocumentColors', () => {
     expect(variable?.error).toBe('未找到 CSS 变量定义。');
   });
 
+  /**
+   * @description 回归用例：尺寸变量用于 height/calc 时不应触发颜色变量的未解析装饰或 hover。
+   */
+  it('filters unresolved variables in non-color declaration contexts', () => {
+    const analysis = analyzeDocumentColors(
+      '.home-page { height: calc(100vh - var(--window-bottom, 0px)); }',
+      'file:///demo.scss',
+      [],
+      true,
+    );
+
+    expect(analysis.occurrences.filter((occurrence) => occurrence.kind === 'variable')).toEqual([]);
+  });
+
   it('hydrates Sass variable occurrences with resolved colors', () => {
     const analysis = analyzeDocumentColors(
       '$brand: #1677ff;\n.button { color: $brand; }',

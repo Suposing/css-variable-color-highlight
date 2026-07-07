@@ -1,6 +1,7 @@
 import type { ColorOccurrence, CssVariableDefinition } from '../types/colorHighlight';
 import { scanDocument } from './documentScanner';
 import { CssVariableResolver } from './cssVariableResolver';
+import { isLikelyColorVariableUsage } from '../utils/cssValue';
 
 /**
  * @description 分析单个文档内可用于装饰和 hover 的颜色信息。
@@ -53,14 +54,23 @@ export function analyzeDocumentColors(
         workspaceDefinitions,
       );
 
-    return {
+    const resolvedOccurrence = {
       ...occurrence,
       colors: resolved.colors,
       fallback: resolved.fallback,
       definition: resolved.definition,
       error: resolved.error,
     };
-  });
+
+    if (
+      resolvedOccurrence.colors.length === 0
+      && !isLikelyColorVariableUsage(text, resolvedOccurrence.range.start, resolvedOccurrence.variableName)
+    ) {
+      return undefined;
+    }
+
+    return resolvedOccurrence;
+  }).filter((occurrence): occurrence is ColorOccurrence => Boolean(occurrence));
 
   return {
     occurrences,
